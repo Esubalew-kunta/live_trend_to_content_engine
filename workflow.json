@@ -1,0 +1,237 @@
+{
+  "name": "Live Trend-to-Content Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://news.google.com/rss/search?q=AI+marketing&hl=en-US&gl=US&ceid=US:en",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000002",
+      "name": "Fetch Google News RSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000003",
+      "name": "Parse RSS XML",
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst channel = data.rss?.channel || {};\nconst rawItems = channel.item || [];\nconst itemArray = Array.isArray(rawItems) ? rawItems : [rawItems];\n\nconst twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;\n\nconst recent = itemArray.filter(item => {\n  const rawDate = item.pubDate || '';\n  const ts = new Date(rawDate).getTime();\n  return !isNaN(ts) && ts >= twoHoursAgo;\n});\n\nconst headlines = recent.slice(0, 8).map((item, i) => {\n  const title = (item.title || '').replace(/<[^>]+>/g, '').trim();\n  return `${i + 1}. ${title}`;\n}).join('\\n');\n\nconst groqPayload = {\n  model: 'llama-3.3-70b-versatile',\n  messages: [\n    {\n      role: 'system',\n      content: 'You are a B2B social media content expert. Write insight-driven posts that establish thought leadership. Write exactly 3 punchy sentences followed by 2-3 relevant hashtags. Be direct, urgent, and share-worthy.'\n    },\n    {\n      role: 'user',\n      content: `These AI marketing headlines are trending right now:\\n\\n${headlines}\\n\\nWrite one compelling 3-sentence social media post that a marketing agency would be proud to share. Make it feel urgent and insightful.`\n    }\n  ],\n  temperature: 0.8,\n  max_tokens: 300\n};\n\nreturn [{\n  json: {\n    recentCount: recent.length,\n    headlines,\n    groqPayload,\n    checkedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000004",
+      "name": "Filter Recent Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-trend-check-001",
+              "leftValue": "={{ $json.recentCount }}",
+              "rightValue": 3,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000005",
+      "name": "3+ Articles Trending?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer PASTE_YOUR_GROQ_API_KEY_HERE"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.groqPayload) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000006",
+      "name": "Generate Post via Groq AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "const groqResponse = $input.first().json;\nconst generatedPost = groqResponse.choices?.[0]?.message?.content || 'Content generation failed — check Groq API key.';\n\nconst filterData = $('Filter Recent Articles').first().json;\nconst recentCount = filterData.recentCount;\nconst checkedAt = filterData.checkedAt;\n\nconst timestamp = new Date(checkedAt).toLocaleString('en-GB', {\n  timeZone: 'UTC',\n  day: '2-digit',\n  month: 'short',\n  year: 'numeric',\n  hour: '2-digit',\n  minute: '2-digit'\n}) + ' UTC';\n\nreturn [{\n  json: {\n    username: 'Trend Engine',\n    embeds: [{\n      title: '\\uD83D\\uDFE2 Trend Detected: AI Marketing',\n      description: generatedPost,\n      color: 5763719,\n      fields: [\n        {\n          name: '\\uD83D\\uDCF0 Articles in Last 2h',\n          value: `${recentCount} articles trending`,\n          inline: true\n        },\n        {\n          name: '\\u23F0 Detected At',\n          value: timestamp,\n          inline: true\n        },\n        {\n          name: '\\uD83E\\uDD16 AI Model',\n          value: 'Groq \\u00B7 llama-3.3-70b-versatile',\n          inline: true\n        }\n      ],\n      footer: {\n        text: 'Live Trend-to-Content Engine \\u00B7 n8n + Groq AI'\n      }\n    }]\n  }\n}];"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000007",
+      "name": "Build Discord Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "PASTE_YOUR_DISCORD_WEBHOOK_URL_HERE",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000008",
+      "name": "Post to Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 180]
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Fetch Google News RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Google News RSS": {
+      "main": [
+        [
+          {
+            "node": "Parse RSS XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse RSS XML": {
+      "main": [
+        [
+          {
+            "node": "Filter Recent Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Recent Articles": {
+      "main": [
+        [
+          {
+            "node": "3+ Articles Trending?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3+ Articles Trending?": {
+      "main": [
+        [
+          {
+            "node": "Generate Post via Groq AI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Generate Post via Groq AI": {
+      "main": [
+        [
+          {
+            "node": "Build Discord Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Discord Payload": {
+      "main": [
+        [
+          {
+            "node": "Post to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "content-automation"
+    },
+    {
+      "name": "ai-marketing"
+    },
+    {
+      "name": "free-tier"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-05-21T00:00:00.000Z",
+  "versionId": "live-trend-v1"
+}
