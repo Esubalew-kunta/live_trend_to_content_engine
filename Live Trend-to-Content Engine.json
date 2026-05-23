@@ -1,0 +1,848 @@
+{
+  "name": "Live Trend-to-Content Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "8b762087-0c16-46dc-9b14-4d484039122a",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -592,
+        -1712
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=AI+marketing&hl=en-US&gl=US&ceid=US:en",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "295a6c0f-889e-4fa6-aafc-ca06aa3158f3",
+      "name": "Fetch Google News RSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -496,
+        -1536
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const twoHoursAgo = Date.now() - (24 * 60 * 60 * 1000);\nlet articles = [];\n\nfor (const item of $input.all()) {\n  const d = item.json;\n  const keyword = d.keyword || '';\n  const xmlString = d.data || '';\n  \n  if (!xmlString) continue;\n  \n  // Extract items from XML using regex\n  const itemMatches = xmlString.match(/<item>([\\s\\S]*?)<\\/item>/g) || [];\n  \n  for (const itemXml of itemMatches) {\n    const getTag = (tag) => {\n      const match = itemXml.match(new RegExp(`<${tag}[^>]*><!\\\\[CDATA\\\\[([\\\\s\\\\S]*?)\\\\]\\\\]><\\\\/${tag}>|<${tag}[^>]*>([\\\\s\\\\S]*?)<\\\\/${tag}>`));\n      return match ? (match[1] || match[2] || '').trim() : '';\n    };\n    \n    const title = getTag('title');\n    const link = getTag('link') || getTag('guid');\n    const pubDate = getTag('pubDate');\n    const ts = pubDate ? new Date(pubDate).getTime() : 0;\n    \n    if (ts > twoHoursAgo && link) {\n      articles.push({ title, link, pubDate, keyword });\n    }\n  }\n}\n\nconst seen = new Set();\narticles = articles.filter(a => {\n  if (!a.link || seen.has(a.link)) return false;\n  seen.add(a.link);\n  return true;\n});\n\nreturn articles.map(a => ({ json: a }));"
+      },
+      "id": "d221ffa8-5fb2-405c-9bb0-49558d22b142",
+      "name": "Filter Recent Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        -1008
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\nreturn [{\n  json: {\n    discordBody: {\n      embeds: [{\n        title: \"🔥 Trend Detected — \" + (data.keywords || 'Marketing'),\n        color: 5814783,\n        fields: [\n          { name: \"🐦 Twitter\", value: data.twitter || \"N/A\", inline: false },\n          { name: \"💼 LinkedIn\", value: data.linkedin || \"N/A\", inline: false },\n          { name: \"🎵 TikTok\", value: data.tiktok || \"N/A\", inline: false },\n          { name: \"Trend Score\", value: (data.score || 0) + \"/10 — \" + (data.reasoning || ''), inline: false }\n        ],\n        footer: { text: \"Articles: \" + (data.articleCount || 0) + \" · \" + (data.timestamp || '') }\n      }]\n    },\n    keywords: data.keywords,\n    score: data.score,\n    articleCount: data.articleCount,\n    timestamp: data.timestamp\n  }\n}];"
+      },
+      "id": "e205da9d-fd08-4aca-9580-65ac501038bd",
+      "name": "Build Discord Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/1507106995864338502/9e1U8Fzmxwnl6LSbPwGrf64-cUnKNndd9pd5BuL6clNoH1QLpUm2CoaP9uKa7KN08nPR",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.discordBody) }}",
+        "options": {}
+      },
+      "id": "33b0b765-682d-4f73-b419-59c2353f12c6",
+      "name": "Post to Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        64,
+        -512
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=AI+marketing&hl=en-US&gl=US&ceid=US:en",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "c98d4661-cb89-497a-878e-e73b18bae12c",
+      "name": "Fetch Google News RSS1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -704,
+        -1536
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=AI+marketing&hl=en-US&gl=US&ceid=US:en",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "429c0364-762d-4c31-907a-f744a888ff63",
+      "name": "Fetch Google News RSS2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -304,
+        -1536
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=AI+marketing&hl=en-US&gl=US&ceid=US:en",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "7525b94a-1592-426b-8af7-e490b443b044",
+      "name": "Fetch Google News RSS3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -896,
+        -1536
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const articles = $input.all().map(i => i.json);\nconst keywords = [...new Set(articles.map(a => a.keyword).filter(Boolean))].join(', ');\n\nreturn [{\n  json: {\n    newArticles: articles,\n    newCount: articles.length,\n    keywords\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        -1008
+      ],
+      "id": "77c13b49-dd94-4735-ad86-6802fc62362e",
+      "name": "Airtable Dedup"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "eee7728b-c381-4c05-8fdc-2d197e8eeda2",
+              "leftValue": "={{ $json.newCount }}",
+              "rightValue": 3,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -48,
+        -1008
+      ],
+      "id": "b952fe95-b4aa-4064-a2e6-cb1cf845beac",
+      "name": "3+ New Articles?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { newArticles, keywords, newCount } = $json;\n\nconst articleTitles = newArticles\n  .map((a, i) => `${i + 1}. [${a.keyword}] ${a.title}`)\n  .join('\\n');\n\nreturn [{\n  json: {\n    articleTitles,\n    keywords,\n    articleCount: newCount,\n    articles: newArticles\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        -752
+      ],
+      "id": "1b374ec1-e31e-44e9-859c-fa8193446340",
+      "name": "Prepare Scoring Input"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.groqPayload) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -208,
+        -752
+      ],
+      "id": "d20702ed-6d84-41a2-9070-5a1e2dc9f42b",
+      "name": "Groq - Score Trend",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mQSjLNa9TbCiOgwl",
+          "name": "Groq"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const groqResponse = $json.choices[0].message.content;\nlet parsed;\ntry {\n  parsed = JSON.parse(groqResponse);\n} catch {\n  parsed = { score: 0, reasoning: 'Parse error' };\n}\n\nconst prev = $('Prepare Scoring Input').first().json;\n\nreturn [{\n  json: {\n    score: parsed.score || 0,\n    reasoning: parsed.reasoning || '',\n    keywords: prev.keywords,\n    articleCount: prev.articleCount,\n    articles: prev.articles,\n    articleTitles: prev.articleTitles\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -752
+      ],
+      "id": "408f8bbc-3b65-44e3-bbb0-d4aa3b919e3c",
+      "name": "Parse Score"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "db518ae4-10b8-4c13-ae74-5f91bd87c679",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        144,
+        -752
+      ],
+      "id": "71868709-fe28-4441-b6c9-8a208b878ccb",
+      "name": "Score 7 or Above?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\n\nreturn [{\n  json: {\n    twitter: d.twitter || '',\n    linkedin: d.linkedin || '',\n    tiktok: d.tiktok || '',\n    score: d.score || 0,\n    reasoning: d.reasoning || '',\n    keywords: d.keywords || '',\n    articleCount: d.articleCount || 0,\n    articles: d.articles || [],\n    timestamp: d.timestamp || new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -480,
+        -512
+      ],
+      "id": "6390fbc8-c912-43ad-bd68-36303650d7db",
+      "name": "Parse Content"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [$input.first()];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        -512
+      ],
+      "id": "158ade3c-890d-44f3-8206-a534af0e1a14",
+      "name": "Save URLs to Airtable"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/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",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({text: \"🔥 *Trend Detected — Live Engine*\\n*Keyword:* \" + ($json.keywords || $('Parse Content').first().json.keywords) + \"\\n*Trend Score:* \" + ($json.score || $('Parse Content').first().json.score) + \"/10\\n*Articles found:* \" + ($json.articleCount || $('Parse Content').first().json.articleCount) + \"\\n*Platforms:* Twitter · LinkedIn · TikTok\\n*Time:* \" + ($json.timestamp || new Date().toISOString())}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        272,
+        -512
+      ],
+      "id": "2e186233-006a-47c6-9d19-d6fe156c6082",
+      "name": "Slack Notification"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nconst token = 'patxAWF5QIwehWM4n.ff094da07c46be669d076e5bfb4f173940199ec3d394c672df9af4e82dd78f38';\nconst baseId = 'appbDj6TtIFKNzhS8';\n\nawait this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://api.airtable.com/v0/${baseId}/RunLogs`,\n  headers: {\n    Authorization: `Bearer ${token}`,\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({\n    fields: {\n      RunTime: new Date().toISOString(),\n      KeywordsMonitored: 5,\n      ArticlesFound: d.articleCount || 0,\n      TrendScore: d.score || 0,\n      ContentGenerated: 'Yes',\n      Status: 'Success'\n    }\n  })\n});\nreturn [$input.first()];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        -512
+      ],
+      "id": "4671d6eb-b25f-41fa-a552-396aec2e0439",
+      "name": "Log: Success"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nconst token = 'patxAWF5QIwehWM4n.ff094da07c46be669d076e5bfb4f173940199ec3d394c672df9af4e82dd78f38';\nconst baseId = 'appbDj6TtIFKNzhS8';\n\nawait this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://api.airtable.com/v0/${baseId}/RunLogs`,\n  headers: {\n    Authorization: `Bearer ${token}`,\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({\n    fields: {\n      RunTime: new Date().toISOString(),\n      KeywordsMonitored: 5,\n      ArticlesFound: d.newCount || 0,\n      TrendScore: 0,\n      ContentGenerated: 'No',\n      Status: 'Skipped — not enough articles'\n    }\n  })\n});\nreturn [$input.first()];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -992
+      ],
+      "id": "e987f703-3476-4161-90b9-8bf2e82f92a3",
+      "name": "Log: Low Article Count"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json;\nconst token = 'patxAWF5QIwehWM4n.ff094da07c46be669d076e5bfb4f173940199ec3d394c672df9af4e82dd78f38';\nconst baseId = 'appbDj6TtIFKNzhS8';\n\nawait this.helpers.httpRequest({\n  method: 'POST',\n  url: `https://api.airtable.com/v0/${baseId}/RunLogs`,\n  headers: {\n    Authorization: `Bearer ${token}`,\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({\n    fields: {\n      RunTime: new Date().toISOString(),\n      KeywordsMonitored: 5,\n      ArticlesFound: d.articleCount || 0,\n      TrendScore: d.score || 0,\n      ContentGenerated: 'No',\n      Status: 'Skipped — score ' + (d.score || 0) + '/10'\n    }\n  })\n});\nreturn [$input.first()];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        -736
+      ],
+      "id": "9aaf5789-0031-4aab-902e-e7c0ccf1ba58",
+      "name": "Log: Low Score"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -560,
+        -1136
+      ],
+      "id": "ba89241a-9b4e-44e4-9df2-f4dcacd2e1ae",
+      "name": "Merge All Feeds"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "700ef261-b7e9-45fb-99c8-e31911d13fc1",
+              "name": "keyword",
+              "value": "Marketing automation",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -272,
+        -1280
+      ],
+      "id": "15cb47e3-8f48-4689-bca7-0e05bfb71b22",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c02ba1cd-53d0-468d-98c7-c26de87b6011",
+              "name": "keyword",
+              "value": "Content AI",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -656,
+        -1280
+      ],
+      "id": "e0c94da1-77b1-4e74-9041-21f194ebe8e4",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a32d1064-36fa-479a-81e7-e46fd7fdb8f3",
+              "name": "keyword",
+              "value": "Brand strategy",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -464,
+        -1280
+      ],
+      "id": "cd801a15-3464-4461-861f-e2c01d044f80",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "94074ecb-3899-47f1-879c-822500ced11a",
+              "name": "keyword",
+              "value": "AI marketing",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -864,
+        -1280
+      ],
+      "id": "f6694e67-c725-49f5-a8ca-920e68b469d4",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { keywords, articleTitles, articleCount, articles } = $json;\n\nreturn [{\n  json: {\n    keywords,\n    articleTitles,\n    articleCount,\n    articles,\n    groqPayload: {\n      model: \"llama-3.3-70b-versatile\",\n      messages: [{\n        role: \"user\",\n        content: `You are a trend analyst for marketing professionals.\\n\\nKeywords: ${keywords}\\n\\nHeadlines:\\n${articleTitles}\\n\\nRate this trend 1-10 for marketing relevance. Respond ONLY with valid JSON:\\n{\"score\": 8, \"reasoning\": \"One sentence explanation\"}`\n      }],\n      temperature: 0.3,\n      response_format: { type: \"json_object\" }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        -752
+      ],
+      "id": "8b9d51d3-dbd4-4772-8e3f-efddbc03fec4",
+      "name": "Build Groq Score Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const keywords = $json.keywords || '';\nconst articleTitles = $json.articleTitles || '';\nconst score = $json.score || 0;\nconst reasoning = $json.reasoning || '';\nconst articleCount = $json.articleCount || 0;\nconst articles = $json.articles || [];\n\nconst content = \"You are a social media content strategist. Trending topic: \" + keywords + \". Trend score: \" + score + \"/10. Why trending: \" + reasoning + \". Write platform posts. Respond ONLY with valid JSON: {\\\"twitter\\\": \\\"punchy post under 280 chars with 2 hashtags\\\", \\\"linkedin\\\": \\\"professional 3-4 sentence post\\\", \\\"tiktok\\\": \\\"hook-first conversational post\\\"}\";\n\nconst messages = [{ role: \"user\", content: content }];\n\nreturn [{\n  json: {\n    keywords,\n    articleTitles,\n    score,\n    reasoning,\n    articleCount,\n    articles,\n    messages,\n    model: \"llama-3.3-70b-versatile\",\n    temperature: 0.7,\n    response_format: { type: \"json_object\" }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        -832
+      ],
+      "id": "d856ad6e-e323-4185-831e-07f49f149933",
+      "name": "Build Content Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const keywords = $json.keywords || '';\nconst articleTitles = $json.articleTitles || '';\nconst score = $json.score || 0;\nconst reasoning = $json.reasoning || '';\nconst articleCount = $json.articleCount || 0;\nconst articles = $json.articles || [];\n\nconst content = \"You are a social media content strategist. Trending topic: \" + keywords + \". Trend score: \" + score + \"/10. Why trending: \" + reasoning + \". Write platform posts. Respond ONLY with valid JSON: {\\\"twitter\\\": \\\"punchy post under 280 chars with 2 hashtags\\\", \\\"linkedin\\\": \\\"professional 3-4 sentence post\\\", \\\"tiktok\\\": \\\"hook-first conversational post\\\"}\";\n\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.groq.com/openai/v1/chat/completions',\n  headers: {\n    Authorization: 'Bearer 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',\n    'Content-Type': 'application/json'\n  },\n  body: JSON.stringify({\n    model: 'llama-3.3-70b-versatile',\n    messages: [{ role: 'user', content: content }],\n    temperature: 0.7,\n    response_format: { type: 'json_object' }\n  })\n});\n\nconst raw = response.choices[0].message.content;\nlet contentParsed;\ntry {\n  contentParsed = JSON.parse(raw);\n} catch {\n  contentParsed = { twitter: '', linkedin: '', tiktok: '' };\n}\n\nreturn [{\n  json: {\n    twitter: contentParsed.twitter || '',\n    linkedin: contentParsed.linkedin || '',\n    tiktok: contentParsed.tiktok || '',\n    score,\n    reasoning,\n    keywords,\n    articleCount,\n    articles,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        -512
+      ],
+      "id": "d393beb7-5d28-43de-aa66-3f30a7914a7c",
+      "name": "Generate Content via Groq"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Fetch Google News RSS",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Google News RSS2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Google News RSS1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Google News RSS3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Google News RSS": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Recent Articles": {
+      "main": [
+        [
+          {
+            "node": "Airtable Dedup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Discord Payload": {
+      "main": [
+        [
+          {
+            "node": "Post to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable Dedup": {
+      "main": [
+        [
+          {
+            "node": "3+ New Articles?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3+ New Articles?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Scoring Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Low Article Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Scoring Input": {
+      "main": [
+        [
+          {
+            "node": "Build Groq Score Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq - Score Trend": {
+      "main": [
+        [
+          {
+            "node": "Parse Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Score": {
+      "main": [
+        [
+          {
+            "node": "Score 7 or Above?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score 7 or Above?": {
+      "main": [
+        [
+          {
+            "node": "Build Content Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log: Low Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Content": {
+      "main": [
+        [
+          {
+            "node": "Save URLs to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save URLs to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Build Discord Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Discord": {
+      "main": [
+        [
+          {
+            "node": "Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Notification": {
+      "main": [
+        [
+          {
+            "node": "Log: Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Feeds": {
+      "main": [
+        [
+          {
+            "node": "Filter Recent Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Google News RSS3": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Google News RSS1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Google News RSS2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Merge All Feeds",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Build Groq Score Payload": {
+      "main": [
+        [
+          {
+            "node": "Groq - Score Trend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Content Payload": {
+      "main": [
+        [
+          {
+            "node": "Generate Content via Groq",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Content via Groq": {
+      "main": [
+        [
+          {
+            "node": "Parse Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "05d2d6e6-8809-4572-8912-ee301e0a793b",
+  "meta": {
+    "instanceId": "0a94a587b7bf21a15c9392a16cb84177f12efc09e9d208698a75444975e1d054"
+  },
+  "id": "WNRATPd6CeCXVCFg",
+  "tags": [
+    {
+      "updatedAt": "2026-05-22T11:51:32.862Z",
+      "createdAt": "2026-05-22T11:51:32.862Z",
+      "id": "JNeiteu4bX0tkuSY",
+      "name": "free-tier"
+    },
+    {
+      "updatedAt": "2026-05-22T11:38:48.451Z",
+      "createdAt": "2026-05-22T11:38:48.451Z",
+      "id": "bsH5RLiYRTp3piWR",
+      "name": "content-automation"
+    },
+    {
+      "updatedAt": "2026-05-22T11:51:32.825Z",
+      "createdAt": "2026-05-22T11:51:32.825Z",
+      "id": "i5WEb83aFAZFDgPc",
+      "name": "ai-marketing"
+    }
+  ]
+}
