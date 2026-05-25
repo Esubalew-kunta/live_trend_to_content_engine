@@ -6,7 +6,7 @@ An n8n automation workflow that monitors **4 marketing keywords in parallel**, s
 
 ## Video Demo
 
-> **[▶ Watch the demo](#)** ← link coming soon
+> **https://youtu.be/J5W9n5yvp2E?si=dAKokjCcuCOPvDLq(#)** ← link 
 
 ---
 
